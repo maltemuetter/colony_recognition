@@ -1,5 +1,5 @@
 import cv2
-from .section import Section
+from .colony_recognition import ColonyRecognition
 import pandas as pd
 
 
