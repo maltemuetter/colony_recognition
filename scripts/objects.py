@@ -5,7 +5,20 @@ import numpy as np
 
 
 class Obj:
-    def __init__(self, matrix, identifier, px_min, rmin=3, overlap_thres=0.75):
+    def __init__(
+        self,
+        matrix,
+        identifier,
+        px_min,
+        rmin=3,
+        overlap_thres=0.75,
+        colors={
+            "activated": "lime",
+            "deactivated": "magenta",
+            "manual": "yellow",
+        },
+    ):
+        self.colors = colors
         self.matrix = matrix
         self.overlap_thres = overlap_thres
         self.identifier = identifier
@@ -48,7 +61,14 @@ class Obj:
     def add_colonies(self, ax):
         for circle in self.colonies:
             x, y, r = circle
-            ax.add_artist(plt.Circle((x, y), r, fill=False, edgecolor="green"))
+            ax.add_artist(
+                plt.Circle(
+                    (x, y),
+                    r,
+                    fill=False,
+                    edgecolor=self.colors["activated"],
+                )
+            )
 
     def show_obj(self, colonies=False, figsize=(12, 8)):
         _, ax = plt.subplots(figsize=figsize)
@@ -57,7 +77,10 @@ class Obj:
             for circle in self.colonies:
                 plt.gca().add_artist(
                     plt.Circle(
-                        (circle[0], circle[1]), circle[2], fill=False, edgecolor="green"
+                        (circle[0], circle[1]),
+                        circle[2],
+                        fill=False,
+                        edgecolor=self.self.colors["activated"],
                     )
                 )
         plt.show()

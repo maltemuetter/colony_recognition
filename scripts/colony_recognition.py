@@ -12,72 +12,72 @@ class ColonyRecognition:
     def __init__(
         self,
         d_im: np.ndarray,
-        max_px=5000,
-        d=3,
-        low_thres=40,
-        dist_coef=0.6,
-        px_min=15,
+        rec_settings={
+            "max_px": 5000,
+            "d": 3,
+            "low_thres": 40,
+            "dist_coef": 0.6,
+            "px_min": 15,
+        },
     ):
         self.image = d_im
-        self.value_thres = self.value_thresholding(self.image, low_thres)
-        self.closed_value_mask = self.fill_holes(self.value_thres, d)
+        self.rec_settings = rec_settings
+        self.value_thres = self.value_thresholding(
+            self.image, self.rec_settings["low_thres"]
+        )
+        self.closed_value_mask = self.fill_holes(
+            self.value_thres, self.rec_settings["d"]
+        )
         self.distance_thres_image, self.dist_img = self.distance_thresholding(
-            self.closed_value_mask, dist_coef
+            self.closed_value_mask, self.rec_settings["dist_coef"]
         )
         self.labels = self.apply_watershed(self.dist_img, self.distance_thres_image)
-        self.size_filtered_labels = self.size_filter_labels(self.labels, max_px=max_px)
-        self.find_objects(px_min)
+        self.size_filtered_labels = self.size_filter_labels(
+            self.labels, max_px=self.rec_settings["max_px"]
+        )
+        self.find_objects(self.rec_settings["px_min"])
         self.corrected = False
 
     @staticmethod
     def value_thresholding(image, low_thresh, show=False):
         _, thresh = cv2.threshold(image, low_thresh, 255, cv2.THRESH_BINARY)
         if show:
-            show_difference(image, thresh)
+            ColonyRecognition.show_difference(image, thresh)
         return thresh
 
     @staticmethod
     def fill_holes(img, d, show=False):
-        # Define structuring element for the closing operation
         selem = disk(d)
-        # Perform morphological closing operation
         closed_thresh_mask = binary_closing(img, selem)
         if show:
-            show_difference(img, closed_thresh_mask)
+            ColonyRecognition.show_difference(img, closed_thresh_mask)
         return closed_thresh_mask
 
     @staticmethod
     def distance_thresholding(im_mask, dist_coef, show=False):
-        # Get distance to next zero. Thin walls will be very close to zero
         D_closed = ndimage.distance_transform_edt(im_mask)
-        # optimize minimum distance
         count, distance = np.histogram(D_closed)
         mean_dist = np.sum(count[2:] * distance[3:]) / np.sum(count[2:])
         d_thres = mean_dist * dist_coef
-        # Filter out values very close to zero
         _, D_thresh = cv2.threshold(D_closed, d_thres, 255, cv2.THRESH_BINARY)
-        # Restore colony edges
         selem = disk(d_thres)
         restored_edges = binary_dilation(D_thresh, selem)
         restored_image = (
             np.logical_or(restored_edges, D_thresh > 0).astype(np.uint8) * 255
         )
         if show:
-            show_difference(im_mask, restored_image)
+            ColonyRecognition.show_difference(im_mask, restored_image)
         return restored_image, ndimage.distance_transform_edt(restored_image)
 
     @staticmethod
     def apply_watershed(dist_img, dist_thres_image):
-        # Compute the markers using connected components
         markers, _ = ndimage.label(dist_thres_image)
-        # Apply the watershed algorithm
         labels = watershed(
             -dist_img, markers, mask=dist_thres_image, watershed_line=True
         )
         return labels
 
     def size_filter_labels(self, labels, max_px=5000):
-        # Remove small objects
         unique, counts = np.unique(labels, return_counts=True)
         min_px = np.median(counts[1:]) / 4
         size_filtered_labels = np.zeros_like(labels)

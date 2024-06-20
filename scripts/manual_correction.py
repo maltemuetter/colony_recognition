@@ -6,14 +6,25 @@ from matplotlib import pyplot as plt
 from colony_recognition import ColonyRecognition
 import matplotlib
 
-matplotlib.use("TkAgg")
+# Use the Qt5Agg backend instead of TkAgg
+matplotlib.use("Qt5Agg")
 
 
 class CorrectColonyCount:
-    def __init__(self, recog_obj: ColonyRecognition, name):
+    def __init__(
+        self,
+        recog_obj: ColonyRecognition,
+        name,
+        colors={
+            "activated": "lime",
+            "deactivated": "magenta",
+            "manual": "yellow",
+        },
+    ):
         self.recog_obj = recog_obj
         self.name = name
         self.df = None
+        self.colors = colors
         self.img = self.recog_obj.image
         self.fig = None
         self.ax = None
@@ -24,6 +35,8 @@ class CorrectColonyCount:
             "b": "go back",
             "a": "abort",
             "u": "unusable",
+            "l": "below lower detection limit",
+            "u": "above upper detection limit",
         }
         self.auto_correct()
 
@@ -57,9 +70,9 @@ class CorrectColonyCount:
 
     def update_image_and_circles(self):
         legend_handles = [
-            mpatches.Patch(color="green", label="Activated"),
-            mpatches.Patch(color="red", label="Deactivated"),
-            mpatches.Patch(color="orange", label="Manual"),
+            mpatches.Patch(color=self.colors["activated"], label="Activated"),
+            mpatches.Patch(color=self.colors["deactivated"], label="Deactivated"),
+            mpatches.Patch(color=self.colors["manual"], label="Manual"),
             mpatches.Patch(color="white", label=""),
             mpatches.Patch(color="white", label="Keyboard Commands:"),
         ]
@@ -77,9 +90,13 @@ class CorrectColonyCount:
         self.ax.set_title(self.name)
 
         for _, row in self.df.iterrows():
-            color = "green" if row["activated"] else "red"
+            color = (
+                self.colors["activated"]
+                if row["activated"]
+                else self.colors["deactivated"]
+            )
             if row["identification"] == "manual":
-                color = "orange"
+                color = self.colors["manual"]
             self.ax.add_artist(
                 plt.Circle((row["x"], row["y"]), row["r"], color=color, fill=False)
             )
