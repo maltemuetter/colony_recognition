@@ -34,11 +34,11 @@ class CorrectColonyCount:
             "n": "next",
             "b": "go back",
             "a": "abort",
-            "u": "unusable",
+            "x": "unusable",
             "l": "below lower detection limit",
             "u": "above upper detection limit",
         }
-        self.auto_correct()
+        self.initialize_colony_data()
 
     def is_inside_circle(self, x, y):
         for i, row in self.df.iterrows():
@@ -56,7 +56,7 @@ class CorrectColonyCount:
                     self.df.drop(index=i, inplace=True)
                     return
 
-    def add_manual_colony(self, x, y, new_r=10):
+    def add_manual_colony(self, x, y, new_r=5):
         new_row = pd.DataFrame(
             {
                 "x": [x],
@@ -117,7 +117,7 @@ class CorrectColonyCount:
             self.add_manual_colony(x, y)
         self.update_image_and_circles()
 
-    def auto_correct(self):
+    def initialize_colony_data(self):
         circles = self.recog_obj.colonies
         if len(circles) == 0:
             self.df = pd.DataFrame(

@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from skimage.morphology import binary_closing, disk, binary_dilation
 from .objects import Obj
 import warnings
+from icecream import ic
 
 
 class ColonyRecognition:
@@ -13,52 +14,64 @@ class ColonyRecognition:
         self,
         d_im: np.ndarray,
         rec_settings={
-            "max_px": 5000,
-            "d": 3,
-            "low_thres": 40,
-            "dist_coef": 0.6,
-            "px_min": 15,
+            "max_pixels": 5000,
+            "disk_size": 3,
+            "low_threshold": 40,
+            "distance_coefficient": 0.6,
+            "min_pixels": 15,
+            "overlap_threshold": 0.75,
+            "min_radius": 3,
         },
     ):
         self.image = d_im
         self.rec_settings = rec_settings
+        self.corrected = False
+        self.auto_detect_colonies()
+
+    def auto_detect_colonies(self, rec_settings={}):
+        settings = self.rec_settings.copy()
+        settings.update(rec_settings)
+
         self.value_thres = self.value_thresholding(
-            self.image, self.rec_settings["low_thres"]
+            self.image, settings["low_threshold"]
         )
         self.closed_value_mask = self.fill_holes(
-            self.value_thres, self.rec_settings["d"]
+            self.value_thres, settings["disk_size"]
         )
         self.distance_thres_image, self.dist_img = self.distance_thresholding(
-            self.closed_value_mask, self.rec_settings["dist_coef"]
+            self.closed_value_mask, settings["distance_coefficient"]
         )
         self.labels = self.apply_watershed(self.dist_img, self.distance_thres_image)
         self.size_filtered_labels = self.size_filter_labels(
-            self.labels, max_px=self.rec_settings["max_px"]
+            self.labels, max_pixels=settings["max_pixels"]
         )
-        self.find_objects(self.rec_settings["px_min"])
-        self.corrected = False
+        self.find_objects(
+            settings["min_pixels"],
+            settings["min_radius"],
+            settings["overlap_threshold"],
+        )
 
     @staticmethod
-    def value_thresholding(image, low_thresh, show=False):
-        _, thresh = cv2.threshold(image, low_thresh, 255, cv2.THRESH_BINARY)
+    def value_thresholding(image, low_threshold, show=False):
+        _, thresh = cv2.threshold(image, low_threshold, 255, cv2.THRESH_BINARY)
         if show:
             ColonyRecognition.show_difference(image, thresh)
         return thresh
 
     @staticmethod
-    def fill_holes(img, d, show=False):
-        selem = disk(d)
+    def fill_holes(img, disk_size, show=False):
+        selem = disk(disk_size)
         closed_thresh_mask = binary_closing(img, selem)
         if show:
             ColonyRecognition.show_difference(img, closed_thresh_mask)
         return closed_thresh_mask
 
     @staticmethod
-    def distance_thresholding(im_mask, dist_coef, show=False):
+    def distance_thresholding(im_mask, distance_coefficient, show=False):
         D_closed = ndimage.distance_transform_edt(im_mask)
         count, distance = np.histogram(D_closed)
         mean_dist = np.sum(count[2:] * distance[3:]) / np.sum(count[2:])
-        d_thres = mean_dist * dist_coef
+        d_thres = mean_dist * distance_coefficient
         _, D_thresh = cv2.threshold(D_closed, d_thres, 255, cv2.THRESH_BINARY)
         selem = disk(d_thres)
         restored_edges = binary_dilation(D_thresh, selem)
@@ -77,12 +90,12 @@ class ColonyRecognition:
         )
         return labels
 
-    def size_filter_labels(self, labels, max_px=5000):
+    def size_filter_labels(self, labels, max_pixels=5000):
         unique, counts = np.unique(labels, return_counts=True)
-        min_px = np.median(counts[1:]) / 4
+        min_pixels = np.median(counts[1:]) / 4
         size_filtered_labels = np.zeros_like(labels)
         for value, count in zip(unique, counts):
-            if (count >= min_px) & (count <= max_px):
+            if (count >= min_pixels) & (count <= max_pixels):
                 size_filtered_labels[labels == value] = value
         return size_filtered_labels
 
@@ -113,12 +126,18 @@ class ColonyRecognition:
             self.show_colonies(ax=axes[-1])
         plt.show()
 
-    def find_objects(self, px_min):
+    def find_objects(self, min_pixels, min_radius, overlap_threshold):
         self.object_nums = []
         self.objects = []
         self.colonies = []
         for o in np.unique(self.labels)[1:]:
-            obj = Obj(self.labels, o, px_min)
+            obj = Obj(
+                self.labels,
+                o,
+                min_pixels,
+                rmin=min_radius,
+                overlap_thres=overlap_threshold,
+            )
             if obj.use:
                 self.objects.append(obj)
                 self.object_nums.append(o)
@@ -160,7 +179,8 @@ class ColonyRecognition:
     def show_colonies(self, ax=None):
         if not ax:
             _, ax = plt.subplots(figsize=(8, 16))
-        ax.imshow(self.image, cmap="Greys")
+        vmax = min(255, np.median(4 * self.image[self.image > 0]))
+        ax.imshow(self.image, cmap="Greys", vmax=vmax)
         for obj in self.objects:
             obj.add_colonies(ax)
         plt.show()
