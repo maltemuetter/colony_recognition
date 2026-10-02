@@ -20,9 +20,31 @@ git clone https://github.com/maltemuetter/colony_recognition.git
 pip install -r colony_recognition/requirements.txt
 ```
 
-The `example/` folder contains a background image and a test image.
+Put the folder that contains `colony_recognition/` on your Python path.
+
+## Example
+
+The `example/` folder contains a background image and a test image:
+
+```python
+from colony_recognition import ColonyCounter, CorrectColonyCount
+
+counter = ColonyCounter("background.png")
+recognition = counter.analyze_section("test.png", 2)
+
+correction = CorrectColonyCount(recognition, "test")
+correction.manual_correct()
+```
+
+Automatic detection on the eight sections of the example plate:
+
+![Detected colonies](example/detection_result.png)
 
 ## Context
 
 Written during my PhD at ETH Zurich to count colonies (CFU) from plating
 experiments faster than by eye.
+
+## License
+
+MIT, see `LICENSE`.

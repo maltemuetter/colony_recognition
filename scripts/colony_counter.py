@@ -1,6 +1,10 @@
 import cv2
+import numpy as np
 from .colony_recognition import ColonyRecognition
 import pandas as pd
+
+ABSORBANCE_CONSTANT = 0.8
+MAX_PIXEL_VALUE = 255
 
 
 class ColonyCounter:
@@ -19,7 +23,22 @@ class ColonyCounter:
             self.y_start:self.y_end, self.x_start:self.x_end]
         back_sec = get_sec(sec_number, self.background)
         im_sec = get_sec(sec_number, image)
-        return Section(im_sec, back_sec)
+        return ColonyRecognition(absorbance_image(im_sec, back_sec))
+
+
+def absorbance_image(image, background):
+    """Return the absorbance of the image relative to the background."""
+    gray_image = to_positive_gray(image)
+    gray_background = to_positive_gray(background)
+    absorbance = np.log(gray_background / gray_image)
+    scaled = absorbance * MAX_PIXEL_VALUE / np.log(1 / ABSORBANCE_CONSTANT)
+    return np.clip(scaled, 0, MAX_PIXEL_VALUE).astype(np.uint8)
+
+
+def to_positive_gray(image):
+    """Convert a BGR image to grayscale floats of at least one."""
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(float)
+    return np.maximum(gray, 1)
 
 
 def get_sec(sec, img):

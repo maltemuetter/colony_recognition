@@ -1,7 +1,8 @@
-from colony_counting import ColonyCounter, CorrectSection
+from colony_recognition import ColonyCounter, CorrectColonyCount
 
 
 counter = ColonyCounter("background.png")
-section = counter.analyze_section("test.png", 2)
+recognition = counter.analyze_section("test.png", 2)
 
-CorrectSection(section, "test")
+correction = CorrectColonyCount(recognition, "test")
+correction.manual_correct()
